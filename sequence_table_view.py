@@ -21,16 +21,22 @@ def open_sequence_table(project_id: int) -> None:
     sequences = sg.find("Sequence", filters=[["project.Project.id", "is", project_id]], fields=["code"])
     table_data = _build_table_data(sg, sequences)
     html_str = _build_html(table_data)
+    write_and_open_html_file(html_str)
+
+
+def write_and_open_html_file(html_str: str) -> None:
+    """
+    Handles writing out an HTML file and opening it in a webbrowser.
+
+    Args:
+        html_str (str): The HTML file as a string to view in your browser.
+    """
     temp_file = tempfile.NamedTemporaryFile(delete=False)
     temp_file_path = temp_file.name + "_sequence_table.html"
     temp_html_file = open(temp_file_path, "w+")
     temp_html_file.write(html_str)
     webbrowser.open(temp_file_path, 1)
     temp_html_file.close()
-
-
-def write_and_open_html_file():
-    ...
 
 
 def _build_table_data(sg, sequences: List[dict]) -> List[dict]:
@@ -140,7 +146,27 @@ def _build_html(table_data: List[dict]) -> str:
         str - The generated HTML as a string.
     """
     html_template = _get_html_template()
-    return html_template
+    table_headers = ["Sequence Code", "ID", "Average Cut Duration", "IP Versions"]
+
+    # Build out the headers html
+    header_row_html = ""
+    for table_header in table_headers:
+        header_row_html += f"<th>{table_header}<t/h>"
+    headers_html = f"<tr>{header_row_html}</tr>"
+
+    # Build out the rows html
+    rows_html = ""
+    for row in table_data:
+        row_html = ""
+        for table_header in table_headers:
+            row_html += f"<td>{row.get(table_header)}</td>"
+        rows_html += f"<tr>{row_html}</tr>"
+
+    table_html = f"<table>{headers_html + rows_html}</table>"
+    html_str = html_template.replace("{table_html}", table_html)
+    print(html_str)
+    return html_str
+
 
 
 def _get_html_template() -> str:
@@ -158,8 +184,25 @@ def _get_html_template() -> str:
 h1 {
   text-align: center;
 }
-h2 {
-  text-align: center;
+
+
+table {
+  border-collapse: collapse;
+  width: 80%;
+}
+
+th, td {
+  border: 2px solid #383838;
+  text-align: left;
+  padding: 8px;
+}
+
+tr:nth-child(odd) {
+  background-color: #9e9e9e;
+}
+
+body {
+    background-color: #e0e0e0
 }
 </style>
 </head>
@@ -169,9 +212,8 @@ h2 {
 
 <h2>Sequences Table</h2>
 
-<table>
 {table_html}
-</table>
+
 
 </body>
 </html>
