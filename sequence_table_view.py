@@ -1,7 +1,7 @@
 """
 Build an HTML table view of certain query fields for Sequences.
 """
-from typing import List, Any
+from typing import List, Any, Union
 import utils.shotgrid
 import shotgun_api3
 from pprint import pprint
@@ -31,12 +31,15 @@ def _build_table_data(sg, sequences: List[dict]) -> List[dict]:
     """
     table_data = []
     for sequence in sequences:
-        row_data = {}
-        row_data["ID"] = sequence.get("id")
-        row_data["Code"] = sequence.get("code")
-        # row_data["Average Cut Duration"] = _evaluate_shotgrid_query_field(sg, sequence, "sg_cut_duration")
-        row_data["IP Versions"] = _evaluate_shotgrid_query_field(sg, sequence, "sg_ip_versions")
+        row_data = {
+            "Sequence Code": sequence.get("code"),
+            "ID": sequence.get("id"),
+            "Average Cut Duration": _evaluate_shotgrid_query_field(sg, sequence, "sg_cut_duration"),
+            "IP Versions": _evaluate_shotgrid_query_field(sg, sequence, "sg_ip_versions")
+        }
         table_data.append(row_data)
+
+    # Sort the table in order of id
     table_data.sort(key=lambda x: x.get("id"))
     pprint(table_data)
     return table_data
@@ -53,34 +56,43 @@ def _build_html(table_data: List[dict]) -> str:
     """
     ...
 
-def _evaluate_shotgrid_query_field(sg: shotgun_api3.Shotgun, entity: dict, query_field: str) -> Any:
+def _evaluate_shotgrid_query_field(sg: shotgun_api3.Shotgun, query_field: str, entity: dict = None) -> Any:
     """
     Returns back the expected result from an SG Query field for a certain entity.
 
     Args:
         sg (shotgun_api3.Shotgun): The SG connection object.
-        entity (dict): The SG entity dictionary - Requires an 'id' and 'type' field.
-        query_field (str): The query field to evaluate.
+        query_field (str): The query field name to evaluate.
+        entity (dict, optional): The SG entity dictionary to replace "Current" summary options. Requires an 'id' and 'type' field. Defaults to None.
 
      Returns:
         Any - The evaluated query field, data structure could change depending on the query field.
     """
-    #TODO First pass, needs handling for deeper filter structures
     field_schema = sg.schema_field_read(entity.get("type"), field_name=query_field)
-    pprint(field_schema)
     field_properties = field_schema[query_field]["properties"]
     query_data = field_properties["query"]["value"]
     entity_type = query_data["entity_type"]
     filter_schemas = query_data["filters"]
     summary_filters = [_parse_filters_from_conditions(filter_schemas, entity)]
 
-    summary_fields = [{"field": field_properties["summary_field"]["value"], "type": field_properties["summary_default"]["value"]}]
-    # pprint(f'sg.summarize("{entity_type}", filters={summary_filters}, summary_fields={[summary_fields]})')
-    summary = sg.summarize(entity_type, filters=summary_filters, summary_fields=summary_fields)
-    return summary["summaries"][query_field]
+    summary_field = field_properties["summary_field"]["value"]
+    summary_type = field_properties["summary_default"]["value"]
+    summary_fields_query = [{"field": summary_field, "type": summary_type}]
+    summary = sg.summarize(entity_type, filters=summary_filters, summary_fields=summary_fields_query)
+    return summary["summaries"][summary_field]
 
 
-def _parse_filters_from_conditions(conditions_schema, entity):
+def _parse_filters_from_conditions(conditions_schema: Union[dict, list], entity: dict = None) -> Union[dict, list]:
+    """
+    Recursive function to parse out nested filter conditions from the schema.
+
+    Args:
+        conditions_schema (dict | list): A portion of the schema conditions to process into filters.
+        entity (dict, optional): An entity to replace the "Current" type filter on a summary field. Defaults to None.
+
+    Returns:
+        dict | list: The processed conditions schema converted into filters that SG queries can recognize.
+    """
     # If the filter is a dictionary then we need to parse what is inside of it
     if type(conditions_schema) == dict:
         # If there is a valid value, then there is filter data to be parsed
