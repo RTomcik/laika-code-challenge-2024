@@ -1,6 +1,10 @@
 """
 Build an HTML table view of certain query fields for Sequences.
 """
+import webbrowser
+import os
+import tempfile
+import time
 from typing import List, Any, Union
 import utils.shotgrid
 import shotgun_api3
@@ -16,6 +20,17 @@ def open_sequence_table(project_id: int) -> None:
     sg = utils.shotgrid.get_shotgrid_python_client()
     sequences = sg.find("Sequence", filters=[["project.Project.id", "is", project_id]], fields=["code"])
     table_data = _build_table_data(sg, sequences)
+    html_str = _build_html(table_data)
+    temp_file = tempfile.NamedTemporaryFile(delete=False)
+    temp_file_path = temp_file.name + "_sequence_table.html"
+    temp_html_file = open(temp_file_path, "w+")
+    temp_html_file.write(html_str)
+    webbrowser.open(temp_file_path, 1)
+    temp_html_file.close()
+
+
+def write_and_open_html_file():
+    ...
 
 
 def _build_table_data(sg, sequences: List[dict]) -> List[dict]:
@@ -34,8 +49,8 @@ def _build_table_data(sg, sequences: List[dict]) -> List[dict]:
         row_data = {
             "Sequence Code": sequence.get("code"),
             "ID": sequence.get("id"),
-            "Average Cut Duration": _evaluate_shotgrid_query_field(sg, sequence, "sg_cut_duration"),
-            "IP Versions": _evaluate_shotgrid_query_field(sg, sequence, "sg_ip_versions")
+            "Average Cut Duration": _evaluate_shotgrid_query_field(sg, "sg_cut_duration", entity=sequence),
+            "IP Versions": _evaluate_shotgrid_query_field(sg, "sg_ip_versions", entity=sequence)
         }
         table_data.append(row_data)
 
@@ -43,18 +58,6 @@ def _build_table_data(sg, sequences: List[dict]) -> List[dict]:
     table_data.sort(key=lambda x: x.get("id"))
     pprint(table_data)
     return table_data
-
-def _build_html(table_data: List[dict]) -> str:
-    """
-    Uses the evaluated table data to build HTML as a string and returns it.
-
-    Args:
-        table_data (List[dict]): The table data to render into HTML.
-
-    Returns:
-        str - The generated HTML as a string.
-    """
-    ...
 
 def _evaluate_shotgrid_query_field(sg: shotgun_api3.Shotgun, query_field: str, entity: dict = None) -> Any:
     """
@@ -124,6 +127,56 @@ def _parse_filters_from_conditions(conditions_schema: Union[dict, list], entity:
         for condition in conditions_schema:
             filters_list.append(_parse_filters_from_conditions(condition, entity))
         return filters_list
+
+
+def _build_html(table_data: List[dict]) -> str:
+    """
+    Uses the evaluated table data to build HTML as a string and returns it.
+
+    Args:
+        table_data (List[dict]): The table data to render into HTML.
+
+    Returns:
+        str - The generated HTML as a string.
+    """
+    html_template = _get_html_template()
+    return html_template
+
+
+def _get_html_template() -> str:
+    """
+    Convenience function to hold the html template that will be used to insert the table data.
+
+    Returns:
+        str - The html template as a string.
+    """
+    return """
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+h1 {
+  text-align: center;
+}
+h2 {
+  text-align: center;
+}
+</style>
+</head>
+<body>
+
+<h1>Laika Code Challenge 2024</h1>
+
+<h2>Sequences Table</h2>
+
+<table>
+{table_html}
+</table>
+
+</body>
+</html>
+"""
+
 
 if __name__ == "__main__":
     project_id = 85
