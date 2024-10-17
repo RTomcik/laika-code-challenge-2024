@@ -43,8 +43,7 @@ def mock_missing_field_config():
     return config
 
 
-def test_get_shotgrid_python_client(mocker, mock_valid_config):
-    ...
+def test_get_shotgrid_python_client(mocker, mock_valid_config): ...
 
 
 def test_validate_config(mock_valid_config):
