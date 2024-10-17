@@ -2,7 +2,10 @@
 Build an HTML table view of certain query fields for Sequences.
 """
 
+import logging
+import os
 import tempfile
+import time
 from typing import List, Any, Union
 import webbrowser
 
@@ -18,6 +21,8 @@ def open_sequence_table(project_id: int) -> None:
     Args:
         project_id (int): The SG id of a project to open the table for.
     """
+    logging.getLogger().setLevel(logging.INFO)
+    logging.info("Beginning Sequence Table build...")
     sg = utils.shotgrid.get_shotgrid_python_client()
     sg_project = sg.find_one(
         "Project", filters=[["id", "is", project_id]], fields=["name"]
@@ -29,10 +34,12 @@ def open_sequence_table(project_id: int) -> None:
     )
     table_data = _build_table_data(sg, sequences)
     html_str = _build_html(sg_project, table_data)
-    write_and_open_html_file(html_str)
+    logging.info("Table data has been built! Saving html file and opening it.")
+    _write_and_open_html_file(html_str)
+    logging.info("Process Complete! Do we have a table?")
 
 
-def write_and_open_html_file(html_str: str) -> None:
+def _write_and_open_html_file(html_str: str) -> None:
     """
     Handles writing out an HTML file and opening it in a webbrowser.
 
@@ -43,8 +50,12 @@ def write_and_open_html_file(html_str: str) -> None:
     temp_file_path = temp_file.name + "_sequence_table.html"
     with open(temp_file_path, "w+", encoding="UTF-8") as temp_html_file:
         temp_html_file.write(html_str)
-    webbrowser.open(temp_file_path, 1)
+        logging.info("Temp html file has been written: %s", temp_file_path)
     temp_html_file.close()
+    webbrowser.open(temp_file_path, 1)
+    time.sleep(1)
+    os.remove(temp_file_path)
+    logging.info("Temp html file has been removed.")
 
 
 def _build_table_data(sg, sequences: List[dict]) -> List[dict]:
@@ -75,7 +86,6 @@ def _build_table_data(sg, sequences: List[dict]) -> List[dict]:
 
     # Sort the table in order of id
     table_data.sort(key=lambda x: x.get("id"))
-    # pprint(table_data)
     return table_data
 
 
@@ -198,7 +208,7 @@ def _build_html(sg_project: dict, table_data: List[dict]) -> str:
         str - The generated HTML as a string.
     """
     html_template = _get_html_template()
-    project_str = f"{sg_project.get('name')} ({sg_project.get('id')})"
+    project_str = f"{sg_project.get('name')} (ID: {sg_project.get('id')})"
     html_str = html_template.replace("{project_str}", project_str)
 
     table_headers = [
@@ -224,7 +234,6 @@ def _build_html(sg_project: dict, table_data: List[dict]) -> str:
 
     table_html = f"<table>{headers_html + rows_html}</table>"
     html_str = html_str.replace("{table_html}", table_html)
-    print(html_str)
     return html_str
 
 

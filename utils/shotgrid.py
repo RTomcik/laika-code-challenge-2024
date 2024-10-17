@@ -58,5 +58,3 @@ def _validate_config(config: configparser.ConfigParser) -> str:
     except AssertionError:
         return "One of the required fields under the SHOTGRID_API section is" \
             " missing from your conf.ini file."
-
-    return ""
