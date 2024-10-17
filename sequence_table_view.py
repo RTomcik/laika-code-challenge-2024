@@ -19,13 +19,16 @@ def open_sequence_table(project_id: int) -> None:
         project_id (int): The SG id of a project to open the table for.
     """
     sg = utils.shotgrid.get_shotgrid_python_client()
+    sg_project = sg.find_one(
+        "Project", filters=[["id", "is", project_id]], fields=["name"]
+    )
     sequences = sg.find(
         "Sequence",
         filters=[["project.Project.id", "is", project_id]],
         fields=["code"],
     )
     table_data = _build_table_data(sg, sequences)
-    html_str = _build_html(table_data)
+    html_str = _build_html(sg_project, table_data)
     write_and_open_html_file(html_str)
 
 
@@ -184,7 +187,7 @@ def _parse_filters_from_conditions(
         return filters_list
 
 
-def _build_html(table_data: List[dict]) -> str:
+def _build_html(sg_project: dict, table_data: List[dict]) -> str:
     """
     Uses the evaluated table data to build HTML as a string and returns it.
 
@@ -195,6 +198,9 @@ def _build_html(table_data: List[dict]) -> str:
         str - The generated HTML as a string.
     """
     html_template = _get_html_template()
+    project_str = f"{sg_project.get('name')} ({sg_project.get('id')})"
+    html_str = html_template.replace("{project_str}", project_str)
+
     table_headers = [
         "Sequence Code",
         "ID",
@@ -217,7 +223,7 @@ def _build_html(table_data: List[dict]) -> str:
         rows_html += f"<tr>{row_html}</tr>"
 
     table_html = f"<table>{headers_html + rows_html}</table>"
-    html_str = html_template.replace("{table_html}", table_html)
+    html_str = html_str.replace("{table_html}", table_html)
     print(html_str)
     return html_str
 
@@ -252,7 +258,7 @@ th, td {
 }
 
 tr:nth-child(odd) {
-  background-color: #9e9e9e;
+  background-color: #c3c3c3;
 }
 
 body {
@@ -264,7 +270,7 @@ body {
 
 <h1>Laika Code Challenge 2024</h1>
 
-<h2>Sequences Table</h2>
+<h2>Sequences - {project_str}</h2>
 
 {table_html}
 
